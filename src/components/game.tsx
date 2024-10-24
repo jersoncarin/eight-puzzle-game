@@ -33,9 +33,12 @@ const Game = ({ mode }: GameProps) => {
   const [isScrambling, setIsScrambling] = useState(false)
   const [originalBoard, setOriginalBoard] = useState<number[]>([])
   const [isDifficultyMenuOpen, setIsDifficultyMenuOpen] = useState(false)
-  const [isVictoryOpen, setIsVictoryOpen] = useState(true)
+  const [isVictoryOpen, setIsVictoryOpen] = useState(false)
+  const [isDoneSolving, setIsDoneSolving] = useState(false)
 
   const updateBoard = (difficulty: keyof typeof difficultyMapping) => {
+    setIsDoneSolving(false)
+
     const { moves, minDifficulty } = scores[difficulty]
 
     setIsScrambling(true)
@@ -123,7 +126,8 @@ const Game = ({ mode }: GameProps) => {
 
     // Check if the puzzle is solved
     if (isSolved(newBoard)) {
-      // alert('You solved the puzzle!')
+      setIsDoneSolving(true)
+      setIsVictoryOpen(true)
     }
   }
 
@@ -168,6 +172,8 @@ const Game = ({ mode }: GameProps) => {
       <div className="cor text-2xl text-center mb-3 text-[#485f7a] uppercase">
         {isScrambling ? (
           'Scrambling...'
+        ) : isDoneSolving ? (
+          'Solved! click new to start again'
         ) : (
           <span
             className="cursor-pointer"
@@ -198,7 +204,12 @@ const Game = ({ mode }: GameProps) => {
             </button>
           ))}
         </div>
-        <div className="board-shadow rounded-md game-board p-4 w-full select-none">
+        <div
+          className={cn(
+            'board-shadow rounded-md game-board p-4 w-full select-none',
+            { 'pointer-events-none': isDoneSolving }
+          )}
+        >
           {board.map((tile, index) =>
             tile !== 0 ? (
               <button
