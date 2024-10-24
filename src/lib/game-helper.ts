@@ -55,6 +55,8 @@ export const asyncScramblePuzzle = (
   moves: number,
   minDifficulty: number
 ) => {
+  const delay = Math.abs(scores.hard.moves - moves + 1)
+
   return new Promise<number[]>((resolve) => {
     let scrambledPuzzle = [...puzzle]
     let moveCount = 0
@@ -79,9 +81,7 @@ export const asyncScramblePuzzle = (
       // Update the difficulty score after each move
       difficultyScore = calculateManhattanDistance(scrambledPuzzle)
 
-      console.log(moveCount, difficultyScore)
-
       moveCount++
-    }, 1) // Spread the scramble process every 10ms to avoid blocking the UI
+    }, delay) // Adjust the interval based on the difficulty
   })
 }

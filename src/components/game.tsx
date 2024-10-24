@@ -8,6 +8,7 @@ import {
 import { scores, asyncScramblePuzzle, SOLVED_STATE } from '@/lib/game-helper'
 import { LoaderCircle } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import Victory from './victory'
 
 type GameProps = {
   mode: string
@@ -20,7 +21,8 @@ const difficultyMapping = {
 } as const
 
 const Game = ({ mode }: GameProps) => {
-  console.log(mode)
+  console.log('Game Mode', mode)
+
   // Initial state of the board (0 represents the empty space)
   const [board, setBoard] = useState<number[]>(SOLVED_STATE)
   const [tileClickedIndex, setTileClickedIndex] = useState<number | null>(null)
@@ -30,9 +32,10 @@ const Game = ({ mode }: GameProps) => {
   const [moves, setMoves] = useState(0)
   const [isScrambling, setIsScrambling] = useState(false)
   const [originalBoard, setOriginalBoard] = useState<number[]>([])
+  const [isDifficultyMenuOpen, setIsDifficultyMenuOpen] = useState(false)
+  const [isVictoryOpen, setIsVictoryOpen] = useState(true)
 
-  // Scramble the puzzle initially in easy mode
-  useEffect(() => {
+  const updateBoard = (difficulty: keyof typeof difficultyMapping) => {
     const { moves, minDifficulty } = scores[difficulty]
 
     setIsScrambling(true)
@@ -43,23 +46,19 @@ const Game = ({ mode }: GameProps) => {
       setIsScrambling(false)
       setOriginalBoard(puzzle)
     })
+  }
+
+  // Scramble the puzzle initially in easy mode
+  useEffect(() => {
+    updateBoard(difficulty)
   }, [])
 
   // Handle difficulty change
   const handleDifficultyChange = (
     difficulty: keyof typeof difficultyMapping
   ) => {
-    const { moves, minDifficulty } = scores[difficulty]
-
-    setIsScrambling(true)
     setDifficulty(difficulty)
-
-    asyncScramblePuzzle(SOLVED_STATE, moves, minDifficulty).then((puzzle) => {
-      setBoard(puzzle)
-      setMoves(0)
-      setIsScrambling(false)
-      setOriginalBoard(puzzle)
-    })
+    updateBoard(difficulty)
   }
 
   // Helper to get the position of the empty space
@@ -167,9 +166,14 @@ const Game = ({ mode }: GameProps) => {
   return (
     <div className="mt-2 flex flex-col">
       <div className="cor text-2xl text-center mb-3 text-[#485f7a] uppercase">
-        {isScrambling
-          ? 'Scrambling...'
-          : `${difficultyMapping[difficulty]} Mode`}
+        {isScrambling ? (
+          'Scrambling...'
+        ) : (
+          <span
+            className="cursor-pointer"
+            onClick={() => setIsDifficultyMenuOpen(true)}
+          >{`${difficultyMapping[difficulty]} Mode`}</span>
+        )}
       </div>
       <div className="flex gap-3 mb-4">
         <button className="btn cor text-2xl text-[#485f7a]">TIME: 0s</button>
@@ -207,7 +211,10 @@ const Game = ({ mode }: GameProps) => {
                 onClick={() => handleMove(index)}
                 className={cn(
                   'game-btn-shadow game-btn flex-grow rounded-md aspect-square transition-transform duration-200 ease-out',
-                  { 'z-10': !isScrambling }
+                  {
+                    'z-10': !isScrambling,
+                    correct: tile === SOLVED_STATE[index] && !isScrambling,
+                  }
                 )}
                 style={{
                   transform: canMove(index)
@@ -233,7 +240,10 @@ const Game = ({ mode }: GameProps) => {
         </div>
       </div>
       <div className=" flex text-lg rounded-md cor uppercase mt-5 gap-3">
-        <DropdownMenu>
+        <DropdownMenu
+          onOpenChange={setIsDifficultyMenuOpen}
+          open={isDifficultyMenuOpen}
+        >
           <DropdownMenuTrigger asChild>
             <button
               disabled={isScrambling}
@@ -274,7 +284,6 @@ const Game = ({ mode }: GameProps) => {
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
-
         <button
           onClick={() => setBoard(originalBoard)}
           disabled={isScrambling}
@@ -295,6 +304,11 @@ const Game = ({ mode }: GameProps) => {
           AI SOLVE
         </button>
       </div>
+      <Victory
+        open={isVictoryOpen}
+        setOpen={setIsVictoryOpen}
+        onDoAgain={() => updateBoard(difficulty)}
+      />
     </div>
   )
 }
