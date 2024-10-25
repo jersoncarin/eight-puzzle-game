@@ -1,6 +1,5 @@
 import { heuristicCost, isSolved, reverseSolutionPath } from './solver'
 
-/* ------------------ Leaf Node Class ------------------ */
 export class Leaf {
   state: number[]
   depth: number
@@ -17,7 +16,6 @@ export class Leaf {
   }
 }
 
-/* ------------------ Decision Tree For A* ------------------ */
 export class DecisionTree {
   root: Leaf
   depth: number
@@ -100,35 +98,41 @@ export class DecisionTree {
     return possibleStates
   }
 
-  aStarSearch(): number[][] | undefined {
-    while (this.toExplore.length > 0) {
-      const currentLeaf = this.findBestLeaf()
-
-      if (isSolved(currentLeaf.state)) {
-        const solution = reverseSolutionPath(currentLeaf)
-
-        return solution
-      }
-
-      const leaves = this.generateNextDepthStates(currentLeaf)
-
-      for (const leaf of leaves) {
-        if (
-          !this.explored.some(
-            (exploredLeaf) =>
-              exploredLeaf.state.toString() === leaf.state.toString()
-          ) &&
-          !this.toExplore.some(
-            (toExploreLeaf) =>
-              toExploreLeaf.state.toString() === leaf.state.toString()
-          )
-        ) {
-          this.toExplore.push(leaf)
+  aStarSearch(): Promise<number[][] | undefined> {
+    return new Promise((resolve) => {
+      const intervalId = setInterval(() => {
+        if (this.toExplore.length === 0) {
+          clearInterval(intervalId)
+          return resolve(undefined) // No solution found
         }
 
-        if (leaf.depth > this.moves) this.moves = leaf.depth
-        if (leaf.total_cost > this.maxCost) this.maxCost = leaf.total_cost
-      }
-    }
+        const currentLeaf = this.findBestLeaf()
+
+        if (isSolved(currentLeaf.state)) {
+          clearInterval(intervalId)
+          return resolve(reverseSolutionPath(currentLeaf)) // Solution found
+        }
+
+        const leaves = this.generateNextDepthStates(currentLeaf)
+
+        for (const leaf of leaves) {
+          if (
+            !this.explored.some(
+              (exploredLeaf) =>
+                exploredLeaf.state.toString() === leaf.state.toString()
+            ) &&
+            !this.toExplore.some(
+              (toExploreLeaf) =>
+                toExploreLeaf.state.toString() === leaf.state.toString()
+            )
+          ) {
+            this.toExplore.push(leaf)
+          }
+
+          if (leaf.depth > this.moves) this.moves = leaf.depth
+          if (leaf.total_cost > this.maxCost) this.maxCost = leaf.total_cost
+        }
+      }, 0) // Set to 0 for as close to continuous processing as possible
+    })
   }
 }

@@ -1,19 +1,21 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { scores, asyncScramblePuzzle, SOLVED_STATE } from '@/lib/game-helper'
+import { scores, scramblePuzzle, SOLVED_STATE } from '@/lib/game-helper'
 import { LoaderCircle } from 'lucide-react'
-import { cn } from '@/lib/utils'
+import { cn, waitFor } from '@/lib/utils'
 import Victory from './victory'
 import { useWindowSize } from 'react-use'
 import Confetti from 'react-confetti'
 import Timer from './timer'
-import { isSolved, moveTile } from '@/lib/solver'
+import { isSolutionExists, isSolved, moveTile } from '@/lib/solver'
 import { DecisionTree } from '@/lib/decision-tree'
+import { Checkbox } from './ui/checkbox'
+import { PRELOAD_IMAGES } from '@/lib/constants'
 
 type GameProps = {
   mode: string
@@ -26,9 +28,6 @@ const difficultyMapping = {
 } as const
 
 const Game = ({ mode }: GameProps) => {
-  console.log('Game Mode', mode)
-
-  // Initial state of the board (0 represents the empty space)
   const [board, setBoard] = useState<number[]>(SOLVED_STATE)
   const [tileClickedIndex, setTileClickedIndex] = useState<number | null>(null)
   const [draggedTileIndex, setDraggedTileIndex] = useState<number | null>(null)
@@ -41,27 +40,42 @@ const Game = ({ mode }: GameProps) => {
   const [isVictoryOpen, setIsVictoryOpen] = useState(false)
   const [isGameOver, setIsGameOver] = useState(false)
   const [isStarted, setIsStarted] = useState(false)
+  const [isAISolving, setIsAISolving] = useState(false)
+  const [isAIThinking, setAIIsThinking] = useState(false)
+  const [isNumberShown, setIsNumberShown] = useState(false)
+  const [randomImage, setRandomImage] = useState(PRELOAD_IMAGES[2]) // Default cat, since i like cats
   const { width, height } = useWindowSize()
+  const initialPosRef = useRef(new Map<string, [string, string]>())
+
+  // Scramble the puzzle initially in easy mode
+  useEffect(() => {
+    updateBoard(difficulty)
+
+    if (mode === 'image') {
+      calculateInitialCropImagePosition()
+    }
+  }, [mode])
 
   const updateBoard = (difficulty: keyof typeof difficultyMapping) => {
+    if (mode === 'image') {
+      setRandomImage(
+        PRELOAD_IMAGES[Math.floor(Math.random() * PRELOAD_IMAGES.length)]
+      )
+    }
+
     setIsGameOver(false)
 
     const { moves, minDifficulty } = scores[difficulty]
 
     setIsScrambling(true)
 
-    asyncScramblePuzzle(SOLVED_STATE, moves, minDifficulty).then((puzzle) => {
+    scramblePuzzle(SOLVED_STATE, moves, minDifficulty).then((puzzle) => {
       setBoard(puzzle)
       setMoves(0)
       setIsScrambling(false)
       setOriginalBoard(puzzle)
     })
   }
-
-  // Scramble the puzzle initially in easy mode
-  useEffect(() => {
-    updateBoard(difficulty)
-  }, [])
 
   // Handle difficulty change
   const handleDifficultyChange = (
@@ -71,10 +85,10 @@ const Game = ({ mode }: GameProps) => {
     updateBoard(difficulty)
   }
 
-  // Helper to get the position of the empty space
+  // Get the position of the empty space
   const getEmptyIndex = () => board.indexOf(0)
 
-  // Helper to check if the move is valid (adjacent to empty space)
+  // Check if the move is valid (adjacent to empty space)
   const canMove = (index: number) => {
     const emptyIndex = getEmptyIndex()
     const validMoves = [
@@ -120,7 +134,7 @@ const Game = ({ mode }: GameProps) => {
     return 'none'
   }
 
-  const onTransitionEnd = () => {
+  const onTransitionEnd = async () => {
     setMoves((prev) => prev + 1)
     const newBoard = [...board]
     const emptyIndex = getEmptyIndex()
@@ -135,6 +149,7 @@ const Game = ({ mode }: GameProps) => {
 
     // Check if the puzzle is solved
     if (isSolved(newBoard)) {
+      await waitFor(600)
       setIsStarted(() => false)
       setIsGameOver(true)
       setIsVictoryOpen(true)
@@ -174,8 +189,17 @@ const Game = ({ mode }: GameProps) => {
   }
 
   const onAISolve = async () => {
+    setIsAISolving(true)
+    setAIIsThinking(true)
+
+    if (!isSolutionExists(board)) {
+      setIsAISolving(false)
+    }
+
     const decisionTree = new DecisionTree(board)
-    const solutions = decisionTree.aStarSearch()
+    const solutions = await decisionTree.aStarSearch()
+
+    setAIIsThinking(false)
 
     if (solutions) {
       for (let i = 0; i < solutions.length; i++) {
@@ -187,10 +211,43 @@ const Game = ({ mode }: GameProps) => {
 
         if (previousGrid.length > 0) {
           moveTile(previousGrid, currentGrid)
-          await new Promise((resolve) => setTimeout(resolve, 450))
+          await waitFor(450)
         }
       }
     }
+
+    setIsAISolving(false)
+  }
+
+  const onGameStateReset = () => {
+    setIsGameOver(false)
+    setMoves(0)
+    setBoard(originalBoard)
+  }
+
+  const calculateInitialCropImagePosition = () => {
+    const cell = document.querySelector(`.cell-btn`)
+    const width = cell?.clientWidth || 0
+    const height = cell?.clientHeight || 0
+
+    const puzzlePieceHeight = height * 3
+    const puzzlePieceWidth = width * 3
+
+    document
+      .querySelectorAll<HTMLButtonElement>('.cell-btn')
+      .forEach((tile) => {
+        // Parse the actual tile ID from the button ID
+        const tileId = parseInt(tile.id.replace('button-', ''))
+
+        // Calculate row and column based on tileId (assuming it's a 3x3 grid)
+        const row = Math.floor((tileId - 1) / 3) // Row number (0, 1, 2)
+        const col = (tileId - 1) % 3 // Column number (0, 1, 2)
+
+        initialPosRef.current.set(tileId.toString(), [
+          `${puzzlePieceWidth}px ${puzzlePieceHeight}px`,
+          `-${col * width}px -${row * height}px`,
+        ])
+      })
   }
 
   return (
@@ -200,6 +257,10 @@ const Game = ({ mode }: GameProps) => {
           'Scrambling...'
         ) : isGameOver ? (
           'Solved! click new to start again'
+        ) : isAIThinking ? (
+          'Ai is thinking...'
+        ) : isAISolving ? (
+          'AI is solving...'
         ) : (
           <span
             className="cursor-pointer hover:text-[#ff407d] transition-all"
@@ -214,15 +275,20 @@ const Game = ({ mode }: GameProps) => {
         </button>
       </div>
       <div className="relative w-full overflow-hidden">
-        <div className="absolute top-0 left-0 board-shadow game-board p-4 rounded-md w-full pointer-events-none select-none">
+        <div className="absolute top-0 left-0 board-shadow game-board p-4 rounded-md w-full pointer-events-none select-none z-10 overflow-hidden">
           {board.map((tile, index) => (
             <button
               disabled
               key={'overlay_' + index}
-              className={cn(
-                'tile-shadow aspect-square rounded-md flex-grow bg-[#EEEEEF] pointer-events-none',
-                { 'animate-pulse': isScrambling }
-              )}
+              className={cn('aspect-square flex-grow pointer-events-none', {
+                'bg-[#EEEEEF]': mode === 'text',
+                'bg-transparent': mode === 'image',
+                'rounded-md': mode === 'text',
+                'tile-text': mode === 'text',
+                'tile-image': mode === 'image',
+                'animate-pulse': isScrambling && mode === 'text',
+                'tile-shadow': mode === 'text',
+              })}
             >
               <div className="text-5xl text-[#EEEEEF] cor opacity-0">
                 {tile}
@@ -230,6 +296,19 @@ const Game = ({ mode }: GameProps) => {
             </button>
           ))}
         </div>
+        {mode === 'image' && (
+          <div className="p-4 w-full h-full absolute top-0 left-0">
+            <div
+              className="rounded-md w-full pointer-events-none select-none h-full dim aspect-square"
+              style={{
+                backgroundImage: `url('${randomImage}')`,
+                backgroundSize: '100% 100%',
+                backgroundPosition: 'center',
+                backgroundRepeat: 'no-repeat',
+              }}
+            ></div>
+          </div>
+        )}
         <div
           className={cn(
             'board-shadow rounded-md game-board p-4 w-full select-none',
@@ -248,19 +327,44 @@ const Game = ({ mode }: GameProps) => {
                 key={index}
                 onClick={() => handleMove(index)}
                 className={cn(
-                  'game-btn-shadow game-btn flex-grow rounded-md aspect-square transition-transform duration-200 ease-out',
+                  'flex-grow aspect-square transition-transform duration-200 ease-out cell-btn',
                   {
-                    'z-10': !isScrambling,
-                    correct: tile === SOLVED_STATE[index] && !isScrambling,
+                    'rounded-md': mode === 'text',
+                    'tile-text': mode === 'text',
+                    'tile-image': mode === 'image',
+                    'game-btn-shadow game-btn': mode === 'text',
+                    'game-btn-image': mode === 'image',
+                    'z-20': !isScrambling,
+                    correct:
+                      tile === SOLVED_STATE[index] &&
+                      !isScrambling &&
+                      mode === 'text',
                   }
                 )}
                 style={{
                   transform: canMove(index)
                     ? getTransformDirection(index)
                     : 'none',
+                  ...(mode === 'image' && {
+                    backgroundImage: `url('${randomImage}')`,
+                    backgroundSize: initialPosRef.current.get(
+                      tile.toString()
+                    )?.[0],
+                    backgroundPosition: initialPosRef.current.get(
+                      tile.toString()
+                    )?.[1],
+                  }),
                 }}
               >
-                <span className="text-5xl cor text-[#485f7a]">{tile}</span>
+                <span
+                  className={cn('text-5xl cor', {
+                    'text-[#485f7a]': mode === 'text',
+                    'text-white': mode === 'image',
+                    'opacity-0': mode === 'image' && !isNumberShown,
+                  })}
+                >
+                  {tile}
+                </span>
               </button>
             ) : (
               <button
@@ -277,6 +381,24 @@ const Game = ({ mode }: GameProps) => {
           )}
         </div>
       </div>
+      {mode === 'image' && (
+        <div className="flex items-center space-x-2 mt-3">
+          <Checkbox
+            checked={isNumberShown}
+            onCheckedChange={(checked) =>
+              setIsNumberShown(typeof checked === 'boolean' && checked)
+            }
+            className="border-[#485f7a] data-[state=checked]:bg-[#485f7a]"
+            id="show_numbers"
+          />
+          <label
+            htmlFor="show_numbers"
+            className="cor text-sm leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 text-[#485f7a]"
+          >
+            Show numbers
+          </label>
+        </div>
+      )}
       <div className=" flex text-lg rounded-md cor uppercase mt-5 gap-3">
         <DropdownMenu
           onOpenChange={setIsDifficultyMenuOpen}
@@ -284,10 +406,10 @@ const Game = ({ mode }: GameProps) => {
         >
           <DropdownMenuTrigger asChild>
             <button
-              disabled={isScrambling}
+              disabled={isScrambling || isAISolving}
               className={cn(
                 'btn-primary cor w-full cor text-2xl text-[#485f7a] hover:text-white',
-                { 'pointer-events-none': isScrambling }
+                { 'pointer-events-none': isScrambling || isAISolving }
               )}
             >
               {isScrambling ? (
@@ -323,24 +445,32 @@ const Game = ({ mode }: GameProps) => {
           </DropdownMenuContent>
         </DropdownMenu>
         <button
-          onClick={() => setBoard(originalBoard)}
-          disabled={isScrambling}
+          onClick={onGameStateReset}
+          disabled={isScrambling || isAISolving}
           className={cn(
             'btn-primary cor w-full cor text-2xl text-[#485f7a] hover:text-white',
-            { 'pointer-events-none': isScrambling }
+            { 'pointer-events-none': isScrambling || isAISolving }
           )}
         >
           RESET
         </button>
         <button
           onClick={onAISolve}
-          disabled={isScrambling}
+          disabled={isScrambling || isAISolving}
           className={cn(
             'btn-primary cor w-full cor text-2xl text-[#485f7a] hover:text-white',
-            { 'pointer-events-none': isScrambling }
+            { 'pointer-events-none': isScrambling || isAISolving }
           )}
         >
-          AI SOLVE
+          {isAISolving ? (
+            <LoaderCircle
+              size={30}
+              color={'#485f7a'}
+              className="animate-spin"
+            />
+          ) : (
+            <span>AI SOLVE</span>
+          )}
         </button>
       </div>
       <Victory

@@ -118,8 +118,12 @@
   aspect-ratio: 1 / 1;
 }
 
-.game-board > button {
+.game-board > .tile-text {
   @apply m-[8px];
+}
+
+.game-board > .tile-image {
+  @apply border;
 }
 
 .btn {
@@ -128,4 +132,12 @@
 
 .correct {
   filter: brightness(1.5) saturate(2);
+}
+
+.dim {
+  filter: brightness(0.4);
+}
+
+.cell-btn {
+  transition-timing-function: ease-in !important;
 }

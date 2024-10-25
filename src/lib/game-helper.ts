@@ -50,7 +50,7 @@ export const calculateManhattanDistance = (puzzle: number[]) => {
   return distance
 }
 
-export const asyncScramblePuzzle = (
+export const scramblePuzzle = (
   puzzle: number[],
   moves: number,
   minDifficulty: number

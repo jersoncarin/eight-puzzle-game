@@ -15,3 +15,6 @@ export const formatTime = (timeInSeconds: number) => {
     minutes > 0 ? `${minutes}m ` : ''
   }${seconds}s`
 }
+
+export const waitFor = (ms: number) =>
+  new Promise((resolve) => setTimeout(resolve, ms))
