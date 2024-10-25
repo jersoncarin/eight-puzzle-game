@@ -7,14 +7,14 @@ export const scores = {
 }
 
 // Helper function to swap two elements in the puzzle array
-const swap = (puzzle: number[], i: number, j: number) => {
+export const swap = (puzzle: number[], i: number, j: number) => {
   const newPuzzle = [...puzzle]
   ;[newPuzzle[i], newPuzzle[j]] = [newPuzzle[j], newPuzzle[i]]
   return newPuzzle
 }
 
 // Get valid moves based on the empty space position
-const getValidMoves = (puzzle: number[]) => {
+export const getValidMoves = (puzzle: number[]) => {
   const emptyIndex = puzzle.indexOf(0)
   const validMoves = []
 

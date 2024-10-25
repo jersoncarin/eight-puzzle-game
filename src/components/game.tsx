@@ -9,6 +9,11 @@ import { scores, asyncScramblePuzzle, SOLVED_STATE } from '@/lib/game-helper'
 import { LoaderCircle } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import Victory from './victory'
+import { useWindowSize } from 'react-use'
+import Confetti from 'react-confetti'
+import Timer from './timer'
+import { isSolved, moveTile } from '@/lib/solver'
+import { DecisionTree } from '@/lib/decision-tree'
 
 type GameProps = {
   mode: string
@@ -34,10 +39,12 @@ const Game = ({ mode }: GameProps) => {
   const [originalBoard, setOriginalBoard] = useState<number[]>([])
   const [isDifficultyMenuOpen, setIsDifficultyMenuOpen] = useState(false)
   const [isVictoryOpen, setIsVictoryOpen] = useState(false)
-  const [isDoneSolving, setIsDoneSolving] = useState(false)
+  const [isGameOver, setIsGameOver] = useState(false)
+  const [isStarted, setIsStarted] = useState(false)
+  const { width, height } = useWindowSize()
 
   const updateBoard = (difficulty: keyof typeof difficultyMapping) => {
-    setIsDoneSolving(false)
+    setIsGameOver(false)
 
     const { moves, minDifficulty } = scores[difficulty]
 
@@ -76,6 +83,7 @@ const Game = ({ mode }: GameProps) => {
       emptyIndex - 3, // above
       emptyIndex + 3, // below
     ]
+
     return validMoves.includes(index)
   }
 
@@ -123,10 +131,12 @@ const Game = ({ mode }: GameProps) => {
 
     setBoard(newBoard)
     setTileClickedIndex(null)
+    setIsStarted(() => true)
 
     // Check if the puzzle is solved
     if (isSolved(newBoard)) {
-      setIsDoneSolving(true)
+      setIsStarted(() => false)
+      setIsGameOver(true)
       setIsVictoryOpen(true)
     }
   }
@@ -163,8 +173,24 @@ const Game = ({ mode }: GameProps) => {
     }
   }
 
-  const isSolved = (board: number[]) => {
-    return JSON.stringify(board) === JSON.stringify([1, 2, 3, 4, 5, 6, 7, 8, 0])
+  const onAISolve = async () => {
+    const decisionTree = new DecisionTree(board)
+    const solutions = decisionTree.aStarSearch()
+
+    if (solutions) {
+      for (let i = 0; i < solutions.length; i++) {
+        const currentGrid = solutions[i]
+        let previousGrid: number[] = []
+
+        // This prevents the first grid from being undefined
+        if (i > 0) previousGrid = solutions[i - 1]
+
+        if (previousGrid.length > 0) {
+          moveTile(previousGrid, currentGrid)
+          await new Promise((resolve) => setTimeout(resolve, 450))
+        }
+      }
+    }
   }
 
   return (
@@ -172,18 +198,18 @@ const Game = ({ mode }: GameProps) => {
       <div className="cor text-2xl text-center mb-3 text-[#485f7a] uppercase">
         {isScrambling ? (
           'Scrambling...'
-        ) : isDoneSolving ? (
+        ) : isGameOver ? (
           'Solved! click new to start again'
         ) : (
           <span
-            className="cursor-pointer"
+            className="cursor-pointer hover:text-[#ff407d] transition-all"
             onClick={() => setIsDifficultyMenuOpen(true)}
           >{`${difficultyMapping[difficulty]} Mode`}</span>
         )}
       </div>
       <div className="flex gap-3 mb-4">
-        <button className="btn cor text-2xl text-[#485f7a]">TIME: 0s</button>
-        <button className="btn cor text-2xl text-[#485f7a]">
+        <Timer isGameStarted={isStarted} isGameOver={isGameOver} />
+        <button className="btn cor text-2xl text-[#485f7a] pointer-events-none select-none">
           MOVES: {moves}
         </button>
       </div>
@@ -207,12 +233,13 @@ const Game = ({ mode }: GameProps) => {
         <div
           className={cn(
             'board-shadow rounded-md game-board p-4 w-full select-none',
-            { 'pointer-events-none': isDoneSolving }
+            { 'pointer-events-none': isGameOver }
           )}
         >
           {board.map((tile, index) =>
             tile !== 0 ? (
               <button
+                id={`button-${tile}`}
                 draggable
                 onDragStart={() => setDraggedTileIndex(index)}
                 onDragOver={(e) => handleDragOver(e, index)}
@@ -306,6 +333,7 @@ const Game = ({ mode }: GameProps) => {
           RESET
         </button>
         <button
+          onClick={onAISolve}
           disabled={isScrambling}
           className={cn(
             'btn-primary cor w-full cor text-2xl text-[#485f7a] hover:text-white',
@@ -320,6 +348,9 @@ const Game = ({ mode }: GameProps) => {
         setOpen={setIsVictoryOpen}
         onDoAgain={() => updateBoard(difficulty)}
       />
+      {isVictoryOpen && (
+        <Confetti style={{ zIndex: 9999 }} width={width} height={height} />
+      )}
     </div>
   )
 }
