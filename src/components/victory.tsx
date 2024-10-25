@@ -4,7 +4,6 @@ import {
   DialogDescription,
   DialogHeader,
 } from '@/components/ui/dialog'
-import Clapping from '@/assets/clapping.gif'
 import { cn } from '@/lib/utils'
 
 type VictoryProps = {
@@ -19,7 +18,7 @@ const Victory = ({ open, setOpen, onDoAgain }: VictoryProps) => {
       <DialogContent className="border-2 border-[#0f3394] rounded-md shadow-none opacity-100 w-96">
         <DialogHeader>
           <div className="w-full flex justify-center my-4">
-            <img className="rounded-md w-72 h-64" src={Clapping} />
+            <img className="rounded-md w-72 h-64" src="/assets/clapping.gif" />
           </div>
           <DialogDescription className="text-[#485f7a] text-2xl cor text-center">
             Congratulations! You've successfully solved the puzzle!
