@@ -474,6 +474,7 @@ const Game = ({ mode }: GameProps) => {
         </button>
       </div>
       <Victory
+        moves={moves}
         open={isVictoryOpen}
         setOpen={setIsVictoryOpen}
         onDoAgain={() => updateBoard(difficulty)}

@@ -7,12 +7,15 @@ import {
 import { cn } from '@/lib/utils'
 
 type VictoryProps = {
+  moves: number
   open: boolean
   setOpen: (open: boolean) => void
   onDoAgain: () => void
 }
 
-const Victory = ({ open, setOpen, onDoAgain }: VictoryProps) => {
+const Victory = ({ open, setOpen, onDoAgain, moves }: VictoryProps) => {
+  console.log(moves)
+
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogContent className="border-2 border-[#0f3394] rounded-md shadow-none opacity-100 w-96">
