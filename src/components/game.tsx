@@ -21,11 +21,16 @@ type GameProps = {
   mode: string
 }
 
-const difficultyMapping = {
+export const difficultyMapping = {
   easy: 'Easy',
   medium: 'Medium',
   hard: 'Hard',
 } as const
+
+const clickAudio = new Audio('/assets/block.mp3')
+const mouseClick = new Audio('/assets/mouse-click.mp3')
+const whooshAudio = new Audio('/assets/whoosh.mp3')
+const bgAudio = new Audio('/assets/bg.mp3')
 
 const Game = ({ mode }: GameProps) => {
   const [board, setBoard] = useState<number[]>(SOLVED_STATE)
@@ -42,10 +47,21 @@ const Game = ({ mode }: GameProps) => {
   const [isStarted, setIsStarted] = useState(false)
   const [isAISolving, setIsAISolving] = useState(false)
   const [isAIThinking, setAIIsThinking] = useState(false)
-  const [isNumberShown, setIsNumberShown] = useState(false)
+  const [isNumberShown, setIsNumberShown] = useState(true)
   const [randomImage, setRandomImage] = useState(PRELOAD_IMAGES[2]) // Default cat, since i like cats
   const { width, height } = useWindowSize()
   const initialPosRef = useRef(new Map<string, [string, string]>())
+
+  useEffect(() => {
+    bgAudio.currentTime = 0
+    bgAudio.volume = 0.2
+    bgAudio.play()
+
+    return () => {
+      bgAudio.currentTime = 0
+      bgAudio.pause()
+    }
+  }, [])
 
   // Scramble the puzzle initially in easy mode
   useEffect(() => {
@@ -81,6 +97,8 @@ const Game = ({ mode }: GameProps) => {
   const handleDifficultyChange = (
     difficulty: keyof typeof difficultyMapping
   ) => {
+    clickAudio.currentTime = 0
+    clickAudio.play()
     setDifficulty(difficulty)
     updateBoard(difficulty)
   }
@@ -102,8 +120,12 @@ const Game = ({ mode }: GameProps) => {
   }
 
   // Handle button click (move the tile if valid)
-  const handleMove = (index: number) => {
-    if (canMove(index)) setTileClickedIndex(index)
+  const handleMove = async (index: number) => {
+    if (canMove(index)) {
+      setTileClickedIndex(index)
+      clickAudio.currentTime = 0
+      clickAudio.play()
+    }
   }
 
   const getTransformDirection = (index: number) => {
@@ -189,6 +211,9 @@ const Game = ({ mode }: GameProps) => {
   }
 
   const onAISolve = async () => {
+    clickAudio.currentTime = 0
+    clickAudio.play()
+
     setIsAISolving(true)
     setAIIsThinking(true)
 
@@ -220,6 +245,9 @@ const Game = ({ mode }: GameProps) => {
   }
 
   const onGameStateReset = () => {
+    clickAudio.currentTime = 0
+    clickAudio.play()
+
     setIsGameOver(false)
     setMoves(0)
     setBoard(originalBoard)
@@ -248,6 +276,15 @@ const Game = ({ mode }: GameProps) => {
           `-${col * width}px -${row * height}px`,
         ])
       })
+  }
+
+  const onMouseEnter = () => {
+    whooshAudio.currentTime = 0.2
+    whooshAudio.play()
+  }
+
+  const onMouseLeave = () => {
+    whooshAudio.pause()
   }
 
   return (
@@ -385,9 +422,11 @@ const Game = ({ mode }: GameProps) => {
         <div className="flex items-center space-x-2 mt-3">
           <Checkbox
             checked={isNumberShown}
-            onCheckedChange={(checked) =>
+            onCheckedChange={(checked) => {
+              mouseClick.currentTime = 0.4
+              mouseClick.play()
               setIsNumberShown(typeof checked === 'boolean' && checked)
-            }
+            }}
             className="border-[#485f7a] data-[state=checked]:bg-[#485f7a]"
             id="show_numbers"
           />
@@ -406,6 +445,8 @@ const Game = ({ mode }: GameProps) => {
         >
           <DropdownMenuTrigger asChild>
             <button
+              onMouseEnter={onMouseEnter}
+              onMouseLeave={onMouseLeave}
               disabled={isScrambling || isAISolving}
               className={cn(
                 'btn-primary cor w-full cor text-2xl text-[#485f7a] hover:text-white',
@@ -445,6 +486,8 @@ const Game = ({ mode }: GameProps) => {
           </DropdownMenuContent>
         </DropdownMenu>
         <button
+          onMouseEnter={onMouseEnter}
+          onMouseLeave={onMouseLeave}
           onClick={onGameStateReset}
           disabled={isScrambling || isAISolving}
           className={cn(
@@ -455,6 +498,8 @@ const Game = ({ mode }: GameProps) => {
           RESET
         </button>
         <button
+          onMouseEnter={onMouseEnter}
+          onMouseLeave={onMouseLeave}
           onClick={onAISolve}
           disabled={isScrambling || isAISolving}
           className={cn(
@@ -474,6 +519,7 @@ const Game = ({ mode }: GameProps) => {
         </button>
       </div>
       <Victory
+        difficulty={difficulty}
         moves={moves}
         open={isVictoryOpen}
         setOpen={setIsVictoryOpen}
