@@ -15,6 +15,7 @@ const bgAudio = new Audio('/assets/bg.mp3')
 
 const Lobby = ({ mode, setMode, setStarted }: LobbyProps) => {
   useEffect(() => {
+    bgAudio.loop = true
     bgAudio.currentTime = 0
     bgAudio.volume = 0.4
     bgAudio.play()

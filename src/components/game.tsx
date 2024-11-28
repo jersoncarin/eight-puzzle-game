@@ -53,6 +53,7 @@ const Game = ({ mode }: GameProps) => {
   const initialPosRef = useRef(new Map<string, [string, string]>())
 
   useEffect(() => {
+    bgAudio.loop = true
     bgAudio.currentTime = 0
     bgAudio.volume = 0.2
     bgAudio.play()
